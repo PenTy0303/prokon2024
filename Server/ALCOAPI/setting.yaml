@@ -1,0 +1,321 @@
+openapi: 3.0.0
+
+info:
+  title: ALCO専用API
+  description: これはALCO内で使用する専用APIです．
+  contact:
+    name: プロコン2024サーバー班
+    email: i11213@nara.kosen-ac.jp
+  license:
+    name: Apache2.0
+  version: 1.0.0
+
+servers:
+  - url: http://localhost/ALCOAPI/v1.0.0
+    description: v1.0.0のALCOAPIのローカルでの実行環境です．
+
+paths:
+  /AuthUser:
+    get:
+      summary: ユーザー認証
+      tags: [AuthUser]
+      description: ユーザー認証の可否を判断します．
+      deprecated: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userID: {type: string, format: uuid, example: xxxxxxxx(8)}
+                pass: {type: string, format: password, example: xxxx}
+      responses:
+        200:
+          description: ユーザー認証可能です．
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionID: {type: string, example: xxxxxxxx(8)}
+        401:
+          description: ユーザー認証不可です．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+    
+    post:
+      summary: ユーザー登録
+      tags: [AuthUser]
+      description: ユーザーの新規登録を行います．
+      deprecated: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, example: xxxx}
+                pass: {type: string, format: password, example: xxxx}
+                # それ以外の情報を追加する必要があればこの位置に足していくこと（2024/05/25）．
+      responses:
+        200: 
+          description: 新規登録完了です．
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userID: {type: string, format: uuid, example: xxxxxxxx(8)}
+                  name: {type: string, example: xxxx}
+        409:
+          description: コンフリクトエラーです．ユーザーの名前等が重複してしまっている場合に生じるエラーです．
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string}
+                  # エラー内容の識別にはエラーコードを使うべきかどうか検討する（2024/05/25）．
+      
+    # PUTはユーザー情報の変更が必要になった際に実装することとする（2024/05/25）．
+
+    # DELETEはユーザー削除をユーザーサイドから行わせないため実装しない（2024/05/25）．
+  
+  /UseSession:
+    get:
+      summary: セッション判定
+      tags: [UseSession]
+      description: 当該セッションがuserIDと有効期限から判断して有効であるかどうかを判定する．
+      deprecated: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionID: {type: string, example: xxxxxxxx(8)}
+                userID: {type: string, example: xxxxxxxx(8)}
+      responses:
+        200:
+          description: 正常に認証されました．
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionID: {type: string, example: xxxxxxxx(8)}
+                  expiredDate: {type: string, format: date-time, example: yyyy-mm-dd-hh-mm-ss(JST)}
+        401:
+          description: 正常に認証できませんでした．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+
+    # postはセッション発行の機能だが，セッションの開始自体はAuthUserのgetメソッド実行の際に同時に行われるため，ここでは新規に作成しない（2024/05/25）．
+
+    # putはセッション情報の更新する機能だが，セッションの情報を更新すること自体が削除ぐらいしかなく，deleteメソッドでそれを行うため，putメソッドで行う処理がない（2024/05/25）．
+
+    delete:
+      summary: セッション削除
+      tags: [UseSession]
+      description: セッション情報の破棄を行う．
+      deprecated: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionID: {type: string, example: xxxxxxxx(8)}
+                userID: {type: string, example: xxxxxxxx(8)}
+      responses:
+        200: 
+          description: 正常に削除が完了しました．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+        401:
+          description: 正常に削除が行えませんでした．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+  
+  /HandleUserData/{userID}:
+    get:
+      summary: ユーザーデータ取得
+      tags: [HandleUserData]
+      description: ユーザーデータを取得しその内容をレスポンスします．
+      deprecated: false
+      parameters:
+        - name: userID
+          schema: {type: string}
+          in: path
+          required: true
+          description: ユーザーIDをpathに含め，ユニークなリソースを指定，
+      responses:
+        200:
+          description: 正常にユーザーデータが取得できました．
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userID: {type: string, example: xxxxxxxx(8)}
+                  data:
+                    type: object
+                    properties:
+                      totalSteps: {type: integer, format: int32, example: 1000}
+                      todaySteps: {type: integer, format: int32, example: 100}
+                      point: {type: integer, format: int 32, example: 10}
+                      favoriteRate: {type: integer, example: 1}
+                      getDate: {type: string, format: date-time, example: yyyy-mm-dd-hh-mm-ss(JST)}
+
+                    
+        401:
+          description: ユーザーデータが正常に取得できませんでした
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+
+    # postはユーザーデータを新規登録する機能だが，ユーザーを新規作成する際に，そのデータのレコードは作成されるため実装しない（2024/05/25）．
+
+    put:
+      summary: ユーザーデータ更新
+      tags: [HandleUserData]
+      description: ユーザーデータを更新する機能．
+      deprecated: false
+      parameters:
+        - name: userID
+          schema: {type: string}
+          in: path
+          required: true
+          description: ユーザーIDをpathに含め，ユニークなリソースを指定，
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                totalSteps: {type: integer, format: int32, example: 1000}
+                todaySteps: {type: integer, format: int32, example: 100}
+                point: {type: integer, format: int 32, example: 10}
+                favoriteRate: {type: integer, example: 1}
+      responses:
+        200:
+          description: 正常に更新が完了しました．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+        401:
+          description: 正常に更新が完了しませんでした．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+
+
+    # deleteはユーザーデータを削除する機能だが，ユーザーデータをクライアントから削除させうる機能は実装しないため，準備しない（2024/05/25）．
+
+  /HandleUserData:
+    get:
+      summary: ユーザーデータランキング表示
+      tags: [HandleUserData]
+      # 表を追加しました（2024/05/28）．
+      description: | 
+        ユーザーデータの各項目についてランキング情報を提供する機能です．返すデータは必ず昇順です．
+        |item|code|detail|
+        |----|----|----|
+        |all|0000|全てのランキングを返します
+        |totalSteps|0001||
+        |todaySteps|0002||
+        |point|0003||
+        |favoriteRate|0004||
+
+      parameters:
+        - name: RankedItem
+          in: query
+          required: true
+          description: ランキングを調べたいアイテムを指定します．各カラム名を用いて指定します．
+          schema: {type: string}
+        - name: lowest
+          in: query
+          required: false
+          # デフォルト値を５に変更しました（2024/05/28）．
+          description: 指定された順位まで，もしくは最下位までをのランキングを表示します．デフォルト値は5.最大10件．
+          schema: {type: integer}
+      responses:
+        200:
+          description: 正常に情報を取得できました．
+          content:
+            application/json:
+              schema:
+                type: object
+                description: 入力されたランキング項目の分だけ返します．
+                properties:
+                  length:
+                    type: integer
+                    description: 以下のデータの長さです．
+                    example: 1
+                  
+                  responses:
+                    type: array
+                    description: 実際のデータ群です．
+                    items:
+                      type: object
+                      description: 各ランキングアイテムごとのランキング
+                      properties:
+                        RankedItem:
+                          type: string
+                          description: 指定されたランキングアイテムです
+                          example: item
+                        length:
+                          type: integer
+                          description: ランキングの個数です．最大は10
+                          example: 1
+                        data:
+                          type: array
+                          description: ランキングデータです
+                          items:
+                            type: object
+                            properties:
+                              userName:
+                                type: string
+                                description: データの保持者
+                                example: name
+                              data:
+                                type: number
+                                description: 実際のデータ
+                                example: 1000
+        401:
+          description: データが正常に取得できませんでした．
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/empty"
+                              
+
+components:
+  schemas:
+    empty:
+      type: object
+      description: レスポンスデータが何もないことを示します．
+
+tags:
+  - name: AuthUser
+    description: ユーザーを認証する際に用いられる機能群です．
+  - name: HandleUserData
+    description: ユーザーデータを利用する際に用いられる機能群です．
+  - name: UseSession
+    description: ユーザーセッションを行う際に用いられる機能群です．
